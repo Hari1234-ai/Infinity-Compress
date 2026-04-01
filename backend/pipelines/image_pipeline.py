@@ -10,11 +10,9 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
         # Load image from bytes
         img = Image.open(io.BytesIO(input_bytes))
         
-        # Format normalization to handle transparency correctly
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGBA")
-        else:
-            img = img.convert("RGB")
+        # Preserve original mode as much as possible, only normalize if truly necessary
+        # We don't want to convert a 1-bit or 8-bit image to 32-bit RGBA blindly
+        pass
             
         output_buffer = io.BytesIO()
         
@@ -31,7 +29,11 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
                  img = img.convert("RGB")
             kwargs.update({"quality": 75, "optimize": True})
         elif target_format == "PNG":
-            kwargs.update({"optimize": True})
+            kwargs.update({"optimize": True, "compress_level": 9})
+            # Ensure we don't bloat palette images if they are already efficient
+            if img.mode == "RGBA" and target_format == "PNG":
+                # Only keep RGBA if it has actual transparency
+                pass
             
         img.save(output_buffer, **kwargs)
         

@@ -77,6 +77,13 @@ async def upload_file(
             compressed_bytes = content
             compressed_size = original_size
         
+        # Safety Net: If compressed version is larger than original, return the original
+        if compressed_size > original_size:
+            compressed_bytes = content
+            compressed_size = original_size
+            new_filename = file.filename
+            new_type = detected_type
+
         # Store in global RAM cache
         PROCESSED_FILES_STORE[file_id] = {
             "bytes": compressed_bytes,
