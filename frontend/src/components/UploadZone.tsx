@@ -91,6 +91,30 @@ export default function UploadZone() {
 
   return (
     <div className="w-full max-w-3xl mx-auto mt-12">
+      {/* Tab Switcher */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="bg-glass-bg p-1 rounded-2xl border border-glass-border flex space-x-1">
+          <button 
+            onClick={() => setActiveTab("compress")}
+            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all relative ${activeTab === "compress" ? "text-white" : "text-text-secondary hover:text-white"}`}
+          >
+            {activeTab === "compress" && (
+              <motion.div layoutId="activeTab" className="absolute inset-0 bg-brand-500 rounded-xl -z-10 shadow-lg shadow-brand-500/20" />
+            )}
+            Compress
+          </button>
+          <button 
+            onClick={() => setActiveTab("convert")}
+            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all relative ${activeTab === "convert" ? "text-white" : "text-text-secondary hover:text-white"}`}
+          >
+            {activeTab === "convert" && (
+              <motion.div layoutId="activeTab" className="absolute inset-0 bg-brand-500 rounded-xl -z-10 shadow-lg shadow-brand-500/20" />
+            )}
+            Convert
+          </button>
+        </div>
+      </div>
+
       <div 
         className={`glass-panel p-10 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center min-h-[300px] cursor-pointer
         ${isDragActive ? 'border-brand-500 bg-brand-500/10' : 'border-glass-border hover:border-brand-500/50 hover:bg-glass-bg/50'}`}
@@ -126,30 +150,6 @@ export default function UploadZone() {
             Browse Files
           </button>
         </motion.div>
-      </div>
-
-      {/* Tab Switcher */}
-      <div className="flex items-center justify-center mt-8">
-        <div className="bg-glass-bg p-1 rounded-2xl border border-glass-border flex space-x-1">
-          <button 
-            onClick={() => setActiveTab("compress")}
-            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all relative ${activeTab === "compress" ? "text-white" : "text-text-secondary hover:text-white"}`}
-          >
-            {activeTab === "compress" && (
-              <motion.div layoutId="activeTab" className="absolute inset-0 bg-brand-500 rounded-xl -z-10 shadow-lg shadow-brand-500/20" />
-            )}
-            Compress
-          </button>
-          <button 
-            onClick={() => setActiveTab("convert")}
-            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all relative ${activeTab === "convert" ? "text-white" : "text-text-secondary hover:text-white"}`}
-          >
-            {activeTab === "convert" && (
-              <motion.div layoutId="activeTab" className="absolute inset-0 bg-brand-500 rounded-xl -z-10 shadow-lg shadow-brand-500/20" />
-            )}
-            Convert
-          </button>
-        </div>
       </div>
 
       <AnimatePresence>
