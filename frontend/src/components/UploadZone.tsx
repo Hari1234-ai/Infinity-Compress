@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 export default function UploadZone() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [activeTab, setActiveTab] = useState<"compress" | "convert">("compress");
   const [outputFormat, setOutputFormat] = useState("AUTO");
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +63,7 @@ export default function UploadZone() {
       const file = selectedFiles[0]; // Process first file for demo
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('mode', activeTab.toUpperCase());
       formData.append('target_format', outputFormat);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -118,12 +120,36 @@ export default function UploadZone() {
           </div>
           <h3 className="text-2xl font-bold tracking-tight text-white">Drag & Drop Files Here</h3>
           <p className="text-text-secondary text-sm max-w-sm">
-            Support for Images, SVGs & PDF Documents. We optimize them locally in memory.
+            {activeTab === "compress" ? "Support for Images, SVGs & PDF Documents. We optimize them locally in memory." : "Easily transform your files between PNG, JPG, and WebP formats."}
           </p>
           <button className="mt-4 px-6 py-2.5 bg-glass-bg border border-glass-border rounded-lg text-sm font-medium hover:bg-brand-500/20 hover:border-brand-500 transition-colors">
             Browse Files
           </button>
         </motion.div>
+      </div>
+
+      {/* Tab Switcher */}
+      <div className="flex items-center justify-center mt-8">
+        <div className="bg-glass-bg p-1 rounded-2xl border border-glass-border flex space-x-1">
+          <button 
+            onClick={() => setActiveTab("compress")}
+            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all relative ${activeTab === "compress" ? "text-white" : "text-text-secondary hover:text-white"}`}
+          >
+            {activeTab === "compress" && (
+              <motion.div layoutId="activeTab" className="absolute inset-0 bg-brand-500 rounded-xl -z-10 shadow-lg shadow-brand-500/20" />
+            )}
+            Compress
+          </button>
+          <button 
+            onClick={() => setActiveTab("convert")}
+            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all relative ${activeTab === "convert" ? "text-white" : "text-text-secondary hover:text-white"}`}
+          >
+            {activeTab === "convert" && (
+              <motion.div layoutId="activeTab" className="absolute inset-0 bg-brand-500 rounded-xl -z-10 shadow-lg shadow-brand-500/20" />
+            )}
+            Convert
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -157,18 +183,29 @@ export default function UploadZone() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between bg-glass-bg p-4 rounded-xl border border-glass-border">
-              <span className="text-sm font-medium text-text-secondary">Image Output Format:</span>
-              <select 
-                value={outputFormat}
-                onChange={(e) => setOutputFormat(e.target.value)}
-                className="bg-[#0b0f1a] text-white text-sm rounded border border-glass-border px-3 py-1.5 focus:outline-none focus:border-brand-500"
-              >
-                <option value="AUTO">Auto (WebP)</option>
-                <option value="JPEG">JPEG</option>
-                <option value="PNG">PNG</option>
-              </select>
-            </div>
+            <AnimatePresence>
+              {activeTab === "convert" && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center justify-between bg-glass-bg p-4 rounded-xl border border-glass-border">
+                    <span className="text-sm font-medium text-text-secondary">Output Format:</span>
+                    <select 
+                      value={outputFormat}
+                      onChange={(e) => setOutputFormat(e.target.value)}
+                      className="bg-[#0b0f1a] text-white text-sm rounded border border-glass-border px-3 py-1.5 focus:outline-none focus:border-brand-500"
+                    >
+                      <option value="AUTO">Auto (WebP)</option>
+                      <option value="JPEG">JPEG</option>
+                      <option value="PNG">PNG</option>
+                    </select>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <motion.button 
               whileHover={{ scale: 1.02 }}
@@ -178,7 +215,7 @@ export default function UploadZone() {
               className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl shadow-brand-500/20 flex items-center justify-center space-x-2 transition-all
               ${isUploading ? 'bg-brand-600 opacity-75 cursor-not-allowed' : 'bg-gradient-to-r from-brand-600 to-brand-500 hover:shadow-brand-500/40'}`}
             >
-              <span>{isUploading ? 'Uploading...' : 'Optimize Now'}</span>
+              <span>{isUploading ? 'Uploading...' : activeTab === "compress" ? 'Optimize Now' : 'Convert Now'}</span>
               {!isUploading && <ChevronRight className="w-5 h-5" />}
             </motion.button>
           </motion.div>

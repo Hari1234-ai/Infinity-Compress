@@ -18,6 +18,9 @@ def process_svg(input_bytes: bytes, original_filename: str) -> tuple[bytes, str,
         options.enable_comment_stripping = True
         options.shorten_ids = True
         options.enable_id_stripping = True
+        options.disable_simplify_pk = False # Enable path simplifying
+        options.strip_xml_prolog = True
+        options.strip_xml_space_attribute = True
         options.indent_type = 'none' # Minify (remove spacing/newlines)
         
         # Minify the SVG text in RAM

@@ -32,6 +32,7 @@ def read_root():
 @app.post("/api/upload")
 async def upload_file(
     file: UploadFile = File(...),
+    mode: str = Form("COMPRESS"),
     target_format: str = Form("AUTO")
 ) -> Dict[str, Any]:
     try:
@@ -43,20 +44,32 @@ async def upload_file(
         file_id = str(uuid.uuid4())
         
         # Determine Pipeline Strategy
-        if detected_type == "image/svg+xml":
+        is_svg = detected_type == "image/svg+xml" or file.filename.lower().endswith(".svg")
+        
+        if is_svg:
             # Native SVG Path Tracing Minification
             start_time = time.time()
             try:
+               # In COMPRESS mode, we always output SVG. 
+               # In CONVERT mode, we currently only support SVG optimization 
+               # (raster-to-svg is not supported yet)
                compressed_bytes, new_filename, new_type = process_svg(content, file.filename)
                compressed_size = len(compressed_bytes)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"SVG Vector processing failed: {e}")
                 
         elif detected_type.startswith("image/"):
-            # Real Compression Logic
+            # Real Compression/Conversion Logic
             start_time = time.time()
             try:
-               fmt = "WEBP" if target_format in ["AUTO", "WEBP"] else target_format 
+               # Determine if we are strictly compressing or converting
+               if mode == "COMPRESS":
+                   # Keep original format extension
+                   fmt = detected_type.split('/')[-1].upper()
+                   if fmt == "JPG": fmt = "JPEG"
+               else:
+                   fmt = "WEBP" if target_format in ["AUTO", "WEBP"] else target_format 
+                   
                compressed_bytes, new_filename, new_type = process_image(content, file.filename, fmt)
                compressed_size = len(compressed_bytes)
             except Exception as e:
