@@ -1,12 +1,11 @@
 import io
-import fitz
+import cairosvg
 from scour import scour
 
-def process_svg(input_bytes: bytes, original_filename: str, target_format: str = "SVG") -> tuple[bytes, str, str]:
+def process_svg(input_bytes: bytes, original_filename: str, target_format: str = "SVG", target_size_kb: int = 0) -> tuple[bytes, str, str]:
     """
     Optimizes or converts SVG documents in memory.
-    If target_format is SVG, performs minification.
-    If target_format is raster (PNG/JPEG/WEBP), performs rendering.
+    If target_format is SVG, performs iterative minification with precision reduction.
     """
     try:
         target_format = target_format.upper()
@@ -14,56 +13,73 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
         # Scenario 1: Optimization (SVG -> SVG)
         if target_format == "SVG":
             input_str = input_bytes.decode('utf-8')
+            target_bytes = target_size_kb * 1024 if target_size_kb > 0 else 0
             
-            # Configure Scour Settings
-            options = scour.sanitizeOptions()
-            options.remove_metadata = True
-            options.remove_descriptive_elements = True
-            options.strip_comments = True
-            options.enable_comment_stripping = True
-            options.shorten_ids = True
-            options.enable_id_stripping = True
-            options.disable_simplify_pk = False
-            options.strip_xml_prolog = True
-            options.strip_xml_space_attribute = True
-            options.indent_type = 'none' 
+            # Iterative Precision Loop
+            current_digits = 5
             
-            output_str = scour.scourString(input_str, options=options)
-            compressed_bytes = output_str.encode('utf-8')
+            def get_minified(digits: int) -> bytes:
+                options = scour.sanitizeOptions()
+                options.remove_metadata = True
+                options.remove_descriptive_elements = True
+                options.strip_comments = True
+                options.enable_comment_stripping = True
+                options.shorten_ids = True
+                options.enable_id_stripping = True
+                options.disable_simplify_pk = False
+                options.strip_xml_prolog = True
+                options.strip_xml_space_attribute = True
+                options.indent_type = 'none' 
+                options.digits = digits # Precision Reduction
+                
+                output_str = scour.scourString(input_str, options=options)
+                return output_str.encode('utf-8')
+
+            compressed_bytes = get_minified(current_digits)
             
+            if target_bytes > 0:
+                # If still too large, reduce precision iteratively
+                while len(compressed_bytes) > target_bytes and current_digits > 1:
+                    current_digits -= 1
+                    compressed_bytes = get_minified(current_digits)
+
+            # Safety Net: Never return a larger file than the original
+            if len(compressed_bytes) > len(input_bytes) and target_bytes == 0:
+                return input_bytes, original_filename, "image/svg+xml"
+
             base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
             new_filename = f"{base_name}_optimized.svg"
             return compressed_bytes, new_filename, "image/svg+xml"
             
         # Scenario 2: Render to Raster (SVG -> PNG/JPG/WEBP)
         else:
+            import cairosvg
             from PIL import Image
-            # Use PyMuPDF (fitz) to render SVG
-            doc = fitz.open("svg", input_bytes)
-            page = doc[0]
-            # High quality scale
-            zoom = 2 # 2x scale
-            mat = fitz.Matrix(zoom, zoom)
-            
-            # Always render with transparency to avoid default black background
-            pix = page.get_pixmap(matrix=mat, alpha=True)
-            
-            # Convert fitz Pixmap to PIL Image
-            img = Image.frombytes("RGBA", [pix.width, pix.height], pix.samples)
             
             output_ext = target_format.lower()
             if output_ext == "jpeg": output_ext = "jpg"
             
+            # cairosvg renders SVG to PNG bytes with full color and transparency support
+            png_bytes = cairosvg.svg2png(
+                bytestring=input_bytes,
+                scale=2.0,  # 2x for high-quality output
+                background_color=None  # Keep transparency for compositing
+            )
+            
+            # Open the PNG result with PIL for format conversion
+            img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+            
             buf = io.BytesIO()
             if output_ext in ["jpg", "jpeg"]:
-                # Composite over white background for JPEG
-                bg = Image.new("RGBA", img.size, "WHITE")
+                # Composite onto white background (JPEG has no transparency)
+                bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
                 bg.paste(img, (0, 0), img)
-                img = bg.convert("RGB")
-                img.save(buf, format="JPEG", quality=90, optimize=True)
+                final = bg.convert("RGB")
+                final.save(buf, format="JPEG", quality=90, optimize=True)
             elif output_ext == "webp":
                 img.save(buf, format="WEBP", quality=90, method=6)
             else:
+                # PNG keeps full transparency
                 img.save(buf, format="PNG", optimize=True)
                 
             output_bytes = buf.getvalue()

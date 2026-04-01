@@ -53,7 +53,7 @@ async def upload_file(
             try:
                # Pass target_format: if "SVG" it optimizes, if "PNG/JPEG/WEBP" it renders
                fmt = "SVG" if (mode == "COMPRESS" or target_format == "AUTO") else target_format
-               compressed_bytes, new_filename, new_type = process_svg(content, file.filename, fmt)
+               compressed_bytes, new_filename, new_type = process_svg(content, file.filename, fmt, target_size_kb)
                compressed_size = len(compressed_bytes)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"SVG Vector processing failed: {e}")
