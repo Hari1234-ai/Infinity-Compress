@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { UploadCloud, File, X, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { setPendingFile } from '@/lib/fileStore';
 
 export default function UploadZone() {
   const [isDragActive, setIsDragActive] = useState(false);
@@ -60,32 +61,18 @@ export default function UploadZone() {
     // but since we want it simple, let's upload it here and pass the ID
 
     try {
-      const file = selectedFiles[0]; // Process first file for demo
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('mode', activeTab.toUpperCase());
-      formData.append('target_format', outputFormat);
+      const file = selectedFiles[0];
+      if (!file) return;
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error("Upload failed");
+      // Handoff to the file store for the next page to pick up
+      setPendingFile(file, activeTab.toUpperCase(), outputFormat);
       
-      const data = await response.json();
-      
-      // Store in session storage for the demo
-      sessionStorage.setItem('processedResult', JSON.stringify(data));
-      
-      // Redirect to process page (which simulates the progress UI)
+      // Immediate flight to the processing zone
       router.push('/process');
       
     } catch (err) {
       console.error(err);
       setIsUploading(false);
-      alert("Error occurred while uploading.");
     }
   };
 

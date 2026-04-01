@@ -3,13 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Settings, Image, FileBox, RefreshCw } from 'lucide-react';
+import { Settings, Image, FileBox, RefreshCw, Zap } from 'lucide-react';
+import { getPendingFile, clearPendingFile } from '@/lib/fileStore';
 
 const steps = [
-  { id: 1, label: "Detecting file type...", icon: <FileBox /> },
-  { id: 2, label: "Analyzing structure & optimal compression...", icon: <Settings /> },
-  { id: 3, label: "Running core compression engine...", icon: <RefreshCw className="animate-spin" /> },
-  { id: 4, label: "Finalizing output & metadata stripping...", icon: <Image /> },
+  { id: 1, label: "Waking up compression engine...", icon: <Zap className="text-yellow-400" /> },
+  { id: 2, label: "Uploading bytes to cloud...", icon: <FileBox /> },
+  { id: 3, label: "Analyzing structure & optimal compression...", icon: <Settings /> },
+  { id: 4, label: "Running core compression engine...", icon: <RefreshCw className="animate-spin text-brand-500" /> },
+  { id: 5, label: "Finalizing & stripping metadata...", icon: <Image /> },
 ];
 
 export default function ProcessPage() {
@@ -18,36 +20,63 @@ export default function ProcessPage() {
   const [progress, setProgress] = useState(0);
   
   useEffect(() => {
-    // Check if we have file data
-    const data = sessionStorage.getItem('processedResult');
-    if (!data) {
+    const { file, mode, targetFormat } = getPendingFile();
+    
+    if (!file) {
       router.push('/');
       return;
     }
 
-    // Simulate progress and steps
-    const stepDuration = 1200; // ms per step
-    const totalSteps = steps.length;
-    
-    let currentProg = 0;
-    const interval = setInterval(() => {
-      currentProg += 2;
-      setProgress(Math.min(currentProg, 100));
-      
-      const expectedStep = Math.min(
-        Math.floor((currentProg / 100) * totalSteps),
-        totalSteps - 1
-      );
-      
-      setCurrentStepIndex(expectedStep);
-      
-      if (currentProg >= 100) {
-        clearInterval(interval);
-        setTimeout(() => router.push('/result'), 500);
-      }
-    }, (stepDuration * totalSteps) / 50);
+    const processFile = async () => {
+      try {
+        // Step 1: Warm up / Initializing
+        setCurrentStepIndex(0);
+        setProgress(10);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('mode', mode);
+        formData.append('target_format', targetFormat);
 
-    return () => clearInterval(interval);
+        // Step 2: Uploading
+        setCurrentStepIndex(1);
+        setProgress(30);
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        
+        // This fetch covers Step 2, 3, and 4 on the backend
+        const response = await fetch(`${apiUrl}/api/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Processing failed");
+
+        // Step 3 & 4: (Simulated transition while parsing JSON result)
+        setCurrentStepIndex(3);
+        setProgress(80);
+        
+        const data = await response.json();
+
+        // Step 5: Finalizing
+        setCurrentStepIndex(4);
+        setProgress(100);
+
+        // Success!
+        sessionStorage.setItem('processedResult', JSON.stringify(data));
+        clearPendingFile();
+        
+        setTimeout(() => router.push('/result'), 800);
+
+      } catch (err) {
+        console.error(err);
+        clearPendingFile();
+        alert("The engine encountered an issue. Please try a smaller file or refresh.");
+        router.push('/');
+      }
+    };
+
+    processFile();
   }, [router]);
 
   return (
