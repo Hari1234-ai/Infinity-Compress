@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "InfinityCompress — Compress Anything. Convert Everything.",
   description: "A universal file compression and format conversion platform.",
+  icons: {
+    icon: "/favicon.png",
+  }
 };
 
 export default function RootLayout({
@@ -13,8 +16,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased min-h-screen bg-[#0b0f1a] text-white">
-        <main className="container mx-auto px-4 py-12 max-w-5xl">
+      <body className="antialiased min-h-screen bg-[#0b0f1a] text-white flex items-center justify-center">
+        <main className="w-full max-w-5xl py-8">
           {children}
         </main>
       </body>
