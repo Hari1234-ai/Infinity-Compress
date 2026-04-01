@@ -33,7 +33,8 @@ def read_root():
 async def upload_file(
     file: UploadFile = File(...),
     mode: str = Form("COMPRESS"),
-    target_format: str = Form("AUTO")
+    target_format: str = Form("AUTO"),
+    target_size_kb: int = Form(0)
 ) -> Dict[str, Any]:
     try:
         # Read the file entirely into RAM
@@ -70,7 +71,7 @@ async def upload_file(
                else:
                    fmt = "WEBP" if target_format in ["AUTO", "WEBP"] else target_format 
                    
-               compressed_bytes, new_filename, new_type = process_image(content, file.filename, fmt)
+               compressed_bytes, new_filename, new_type = process_image(content, file.filename, fmt, target_size_kb)
                compressed_size = len(compressed_bytes)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Image processing failed: {e}")
@@ -116,6 +117,7 @@ async def upload_file(
             "compressedSize": compressed_size,
             "compressionRatio": compression_ratio,
             "detectedType": new_type,
+            "mode": mode,
             "status": "success",
             "message": "File accurately processed and held in memory."
         }

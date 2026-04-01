@@ -29,6 +29,13 @@ export default function ProcessPage() {
 
     const processFile = async () => {
       try {
+        const { file, mode, targetFormat, targetSizeKb } = getPendingFile();
+        
+        if (!file) {
+          router.push('/');
+          return;
+        }
+
         // Step 1: Warm up / Initializing
         setCurrentStepIndex(0);
         setProgress(10);
@@ -37,6 +44,7 @@ export default function ProcessPage() {
         formData.append('file', file);
         formData.append('mode', mode);
         formData.append('target_format', targetFormat);
+        formData.append('target_size_kb', String(targetSizeKb));
 
         // Step 2: Uploading
         setCurrentStepIndex(1);

@@ -11,6 +11,7 @@ export default function UploadZone() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [activeTab, setActiveTab] = useState<"compress" | "convert">("compress");
   const [outputFormat, setOutputFormat] = useState("AUTO");
+  const [targetSizeKb, setTargetSizeKb] = useState(0); 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function UploadZone() {
       if (!file) return;
 
       // Handoff to the file store for the next page to pick up
-      setPendingFile(file, activeTab.toUpperCase(), outputFormat);
+      setPendingFile(file, activeTab.toUpperCase(), outputFormat, targetSizeKb);
       
       // Immediate flight to the processing zone
       router.push('/process');
@@ -170,9 +171,10 @@ export default function UploadZone() {
               ))}
             </div>
 
-            <AnimatePresence>
-              {activeTab === "convert" && (
+            <AnimatePresence mode="wait">
+              {activeTab === "convert" ? (
                 <motion.div 
+                  key="convert-options"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
@@ -188,6 +190,32 @@ export default function UploadZone() {
                       <option value="AUTO">Auto (WebP)</option>
                       <option value="JPEG">JPEG</option>
                       <option value="PNG">PNG</option>
+                    </select>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="compress-options"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center justify-between bg-glass-bg p-4 rounded-xl border border-glass-border">
+                    <span className="text-sm font-medium text-text-secondary">Target Size (Max):</span>
+                    <select 
+                      value={targetSizeKb}
+                      onChange={(e) => setTargetSizeKb(Number(e.target.value))}
+                      className="bg-[#0b0f1a] text-white text-sm rounded border border-glass-border px-3 py-1.5 focus:outline-none focus:border-brand-500"
+                    >
+                      <option value={0}>Auto (Best)</option>
+                      <option value={10}>10 KB (Aggressive)</option>
+                      <option value={20}>20 KB</option>
+                      <option value={50}>50 KB</option>
+                      <option value={100}>100 KB</option>
+                      <option value={200}>200 KB</option>
+                      <option value={500}>500 KB</option>
+                      <option value={1024}>1 MB</option>
                     </select>
                   </div>
                 </motion.div>

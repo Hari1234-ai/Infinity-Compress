@@ -5,16 +5,18 @@ type FileStore = {
   file: File | null;
   mode: string;
   targetFormat: string;
+  targetSizeKb: number;
 };
 
 let internalStore: FileStore = {
   file: null,
   mode: 'COMPRESS',
   targetFormat: 'AUTO',
+  targetSizeKb: 0,
 };
 
-export const setPendingFile = (file: File, mode: string, targetFormat: string) => {
-  internalStore = { file, mode, targetFormat };
+export const setPendingFile = (file: File, mode: string, targetFormat: string, targetSizeKb: number = 0) => {
+  internalStore = { file, mode, targetFormat, targetSizeKb };
 };
 
 export const getPendingFile = () => {
@@ -22,5 +24,5 @@ export const getPendingFile = () => {
 };
 
 export const clearPendingFile = () => {
-  internalStore = { file: null, mode: 'COMPRESS', targetFormat: 'AUTO' };
+  internalStore = { file: null, mode: 'COMPRESS', targetFormat: 'AUTO', targetSizeKb: 0 };
 };
