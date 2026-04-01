@@ -35,20 +35,38 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
             new_filename = f"{base_name}_optimized.svg"
             return compressed_bytes, new_filename, "image/svg+xml"
             
-        # Scenario 2: Render to Raster (SVG -> PNG/JPG)
+        # Scenario 2: Render to Raster (SVG -> PNG/JPG/WEBP)
         else:
+            from PIL import Image
             # Use PyMuPDF (fitz) to render SVG
             doc = fitz.open("svg", input_bytes)
             page = doc[0]
             # High quality scale
             zoom = 2 # 2x scale
             mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat, alpha=(target_format == "PNG"))
+            
+            # Always render with transparency to avoid default black background
+            pix = page.get_pixmap(matrix=mat, alpha=True)
+            
+            # Convert fitz Pixmap to PIL Image
+            img = Image.frombytes("RGBA", [pix.width, pix.height], pix.samples)
             
             output_ext = target_format.lower()
             if output_ext == "jpeg": output_ext = "jpg"
             
-            output_bytes = pix.tobytes(output_ext)
+            buf = io.BytesIO()
+            if output_ext in ["jpg", "jpeg"]:
+                # Composite over white background for JPEG
+                bg = Image.new("RGBA", img.size, "WHITE")
+                bg.paste(img, (0, 0), img)
+                img = bg.convert("RGB")
+                img.save(buf, format="JPEG", quality=90, optimize=True)
+            elif output_ext == "webp":
+                img.save(buf, format="WEBP", quality=90, method=6)
+            else:
+                img.save(buf, format="PNG", optimize=True)
+                
+            output_bytes = buf.getvalue()
             
             base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
             new_filename = f"{base_name}_converted.{output_ext}"

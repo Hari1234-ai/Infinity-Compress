@@ -36,38 +36,59 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
         # Scenario 2: Raster Processing (JPEG, PNG, WEBP)
         img = Image.open(io.BytesIO(input_bytes))
         
-        if target_format not in ["WEBP", "JPEG", "PNG"]:
-            target_format = "WEBP"
-            
-        def get_compressed(q: int) -> bytes:
+        # Iterative Compression Loop
+        target_bytes = target_size_kb * 1024 if target_size_kb > 0 else 0
+        current_quality = 90
+        current_scale = 1.0
+        
+        def get_variant(q: int, s: float) -> bytes:
             buf = io.BytesIO()
+            # Handle Resizing
+            if s < 1.0:
+                new_w = max(1, int(img.width * s))
+                new_h = max(1, int(img.height * s))
+                proc_img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            else:
+                proc_img = img
+                
             kwargs = {"format": target_format}
             if target_format == "WEBP":
                 kwargs.update({"quality": q, "method": 6})
             elif target_format == "JPEG":
-                # Ensure JPEG mode is RGB
-                img_to_save = img.convert("RGB") if img.mode == "RGBA" else img
-                img_to_save.save(buf, quality=q, optimize=True, format="JPEG")
+                proc_img = proc_img.convert("RGB") if proc_img.mode == "RGBA" else proc_img
+                proc_img.save(buf, quality=q, optimize=True, format="JPEG")
                 return buf.getvalue()
             elif target_format == "PNG":
-                img.save(buf, optimize=True, compress_level=9, format="PNG")
+                # For targeted PNG, use quantization to meet size
+                if target_bytes > 0:
+                   # Quantize to 8-bit palette (256 colors) for major savings
+                   proc_img = proc_img.quantize(colors=256)
+                proc_img.save(buf, optimize=True, compress_level=9, format="PNG")
                 return buf.getvalue()
             
-            img.save(buf, **kwargs)
+            proc_img.save(buf, **kwargs)
             return buf.getvalue()
 
-        # Iterative Compression Loop
-        current_quality = 90
-        compressed_bytes = get_compressed(current_quality)
+        # Phase 1: Try reducing quality (90 -> 10)
+        compressed_bytes = get_variant(current_quality, current_scale)
         
-        if target_size_kb > 0:
-            target_bytes = target_size_kb * 1024
+        if target_bytes > 0:
             while len(compressed_bytes) > target_bytes and current_quality > 10:
-                current_quality -= 10
+                current_quality -= 15
                 if current_quality < 10: current_quality = 10
-                compressed_bytes = get_compressed(current_quality)
+                compressed_bytes = get_variant(current_quality, current_scale)
+            
+            # Phase 2: If still too large, reduce scale (90% -> 10%)
+            while len(compressed_bytes) > target_bytes and current_scale > 0.1:
+                current_scale -= 0.15
+                if current_scale < 0.1: current_scale = 0.1
+                compressed_bytes = get_variant(current_quality, current_scale)
 
-        # New filename
+        # Safety Net: Never return a file larger than the original input
+        if len(compressed_bytes) > len(input_bytes) and target_bytes == 0:
+            return input_bytes, original_filename, f"image/{target_format.lower()}"
+
+        # Final Filename
         base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
         extension = target_format.lower()
         if extension == "jpeg": extension = "jpg"
