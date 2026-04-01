@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-multipart
+pillow
+ffmpeg-python
+python-magic
