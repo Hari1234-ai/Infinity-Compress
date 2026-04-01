@@ -8,6 +8,7 @@ from typing import Dict, Any
 
 from pipelines.image_pipeline import process_image
 from pipelines.pdf_pipeline import process_pdf
+from pipelines.svg_pipeline import process_svg
 
 app = FastAPI(title="InfinityCompress API - In-Memory Engine")
 
@@ -42,7 +43,16 @@ async def upload_file(
         file_id = str(uuid.uuid4())
         
         # Determine Pipeline Strategy
-        if detected_type.startswith("image/"):
+        if detected_type == "image/svg+xml":
+            # Native SVG Path Tracing Minification
+            start_time = time.time()
+            try:
+               compressed_bytes, new_filename, new_type = process_svg(content, file.filename)
+               compressed_size = len(compressed_bytes)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"SVG Vector processing failed: {e}")
+                
+        elif detected_type.startswith("image/"):
             # Real Compression Logic
             start_time = time.time()
             try:

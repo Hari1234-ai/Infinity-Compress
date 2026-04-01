@@ -5,3 +5,4 @@ pillow
 ffmpeg-python
 python-magic
 PyMuPDF
+scour

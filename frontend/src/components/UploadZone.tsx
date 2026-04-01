@@ -102,7 +102,7 @@ export default function UploadZone() {
           ref={fileInputRef}
           type="file" 
           multiple 
-          accept="image/*,application/pdf"
+          accept="image/*,application/pdf,image/svg+xml"
           className="hidden" 
           onChange={handleChange} 
         />
@@ -118,7 +118,7 @@ export default function UploadZone() {
           </div>
           <h3 className="text-2xl font-bold tracking-tight text-white">Drag & Drop Files Here</h3>
           <p className="text-text-secondary text-sm max-w-sm">
-            Support for Images & PDF Documents. We optimize them locally in memory.
+            Support for Images, SVGs & PDF Documents. We optimize them locally in memory.
           </p>
           <button className="mt-4 px-6 py-2.5 bg-glass-bg border border-glass-border rounded-lg text-sm font-medium hover:bg-brand-500/20 hover:border-brand-500 transition-colors">
             Browse Files
