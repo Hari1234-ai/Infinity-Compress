@@ -64,8 +64,8 @@ export default function UploadZone() {
       formData.append('file', file);
       formData.append('target_format', outputFormat);
 
-      // We call the backend directly
-      const response = await fetch('http://localhost:8000/api/upload', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/upload`, {
         method: 'POST',
         body: formData,
       });

@@ -17,7 +17,8 @@ export default function ResultCard({ processedData }: { processedData: any }) {
   const handleDownload = () => {
     // Navigate straight to download endpoint to initialize browser download
     if (fileId) {
-      window.open(`http://localhost:8000/api/download/${fileId}`, '_blank');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      window.open(`${apiUrl}/api/download/${fileId}`, '_blank');
     }
   };
 
