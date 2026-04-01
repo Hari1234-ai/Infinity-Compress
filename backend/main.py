@@ -48,13 +48,12 @@ async def upload_file(
         is_svg = detected_type == "image/svg+xml" or file.filename.lower().endswith(".svg")
         
         if is_svg:
-            # Native SVG Path Tracing Minification
+            # Native SVG Path Tracing Minification or Conversion
             start_time = time.time()
             try:
-               # In COMPRESS mode, we always output SVG. 
-               # In CONVERT mode, we currently only support SVG optimization 
-               # (raster-to-svg is not supported yet)
-               compressed_bytes, new_filename, new_type = process_svg(content, file.filename)
+               # Pass target_format: if "SVG" it optimizes, if "PNG/JPEG/WEBP" it renders
+               fmt = "SVG" if (mode == "COMPRESS" or target_format == "AUTO") else target_format
+               compressed_bytes, new_filename, new_type = process_svg(content, file.filename, fmt)
                compressed_size = len(compressed_bytes)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"SVG Vector processing failed: {e}")
@@ -69,7 +68,8 @@ async def upload_file(
                    fmt = detected_type.split('/')[-1].upper()
                    if fmt == "JPG": fmt = "JPEG"
                else:
-                   fmt = "WEBP" if target_format in ["AUTO", "WEBP"] else target_format 
+                   # Convert Mode: Use target_format (can be WEBP, JPEG, PNG, or SVG)
+                   fmt = "WEBP" if target_format == "AUTO" else target_format 
                    
                compressed_bytes, new_filename, new_type = process_image(content, file.filename, fmt, target_size_kb)
                compressed_size = len(compressed_bytes)

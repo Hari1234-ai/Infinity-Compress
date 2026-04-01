@@ -190,6 +190,7 @@ export default function UploadZone() {
                       <option value="AUTO">Auto (WebP)</option>
                       <option value="JPEG">JPEG</option>
                       <option value="PNG">PNG</option>
+                      <option value="SVG">SVG (Vector)</option>
                     </select>
                   </div>
                 </motion.div>
