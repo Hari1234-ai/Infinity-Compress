@@ -1,6 +1,5 @@
 import io
 from PIL import Image
-import vtracer
 
 def process_image(input_bytes: bytes, original_filename: str, target_format: str = "WEBP", target_size_kb: int = 0) -> tuple[bytes, str, str]:
     """
@@ -12,6 +11,7 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
         
         # Scenario 1: Vectorization (Raster -> SVG)
         if target_format == "SVG":
+            import vtracer
             # Normalize image to clean PNG bytes via PIL before vectorizing
             # This prevents vtracer from failing on unusual image formats/metadata
             img_norm = Image.open(io.BytesIO(input_bytes)).convert("RGBA")

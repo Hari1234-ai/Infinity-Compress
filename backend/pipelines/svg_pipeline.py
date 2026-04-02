@@ -1,5 +1,4 @@
 import io
-import cairosvg
 from scour import scour
 
 def process_svg(input_bytes: bytes, original_filename: str, target_format: str = "SVG", target_size_kb: int = 0) -> tuple[bytes, str, str]:
