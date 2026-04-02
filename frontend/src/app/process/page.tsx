@@ -3,88 +3,84 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Settings, Image, FileBox, RefreshCw, Zap } from 'lucide-react';
+import { Settings, Files, RefreshCw, Zap, PackageCheck } from 'lucide-react';
 import { getPendingFile, clearPendingFile } from '@/lib/fileStore';
 
 const steps = [
   { id: 1, label: "Waking up compression engine...", icon: <Zap className="text-yellow-400" /> },
-  { id: 2, label: "Uploading bytes to cloud...", icon: <FileBox /> },
-  { id: 3, label: "Analyzing structure & optimal compression...", icon: <Settings /> },
-  { id: 4, label: "Running core compression engine...", icon: <RefreshCw className="animate-spin text-brand-500" /> },
-  { id: 5, label: "Finalizing & stripping metadata...", icon: <Image /> },
+  { id: 2, label: "Uploading files to cloud...", icon: <Files /> },
+  { id: 3, label: "Analyzing & optimizing each file...", icon: <Settings /> },
+  { id: 4, label: "Running compression engine...", icon: <RefreshCw className="animate-spin text-brand-500" /> },
+  { id: 5, label: "Packing into ZIP archive...", icon: <PackageCheck className="text-green-400" /> },
 ];
 
 export default function ProcessPage() {
   const router = useRouter();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  
+  const [fileLabel, setFileLabel] = useState("your files");
+
   useEffect(() => {
-    const { file, mode, targetFormat } = getPendingFile();
-    
-    if (!file) {
+    const { files, mode, targetFormat, targetSizeKb } = getPendingFile();
+
+    if (!files || files.length === 0) {
       router.push('/');
       return;
     }
 
-    const processFile = async () => {
-      try {
-        const { file, mode, targetFormat, targetSizeKb } = getPendingFile();
-        
-        if (!file) {
-          router.push('/');
-          return;
-        }
+    setFileLabel(files.length === 1 ? files[0].name : `${files.length} files`);
 
-        // Step 1: Warm up / Initializing
+    const processFiles = async () => {
+      try {
         setCurrentStepIndex(0);
         setProgress(10);
-        
+
         const formData = new FormData();
-        formData.append('file', file);
+        files.forEach(f => formData.append('files', f));
         formData.append('mode', mode);
         formData.append('target_format', targetFormat);
         formData.append('target_size_kb', String(targetSizeKb));
 
-        // Step 2: Uploading
         setCurrentStepIndex(1);
         setProgress(30);
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        
-        // This fetch covers Step 2, 3, and 4 on the backend
-        const response = await fetch(`${apiUrl}/api/upload`, {
+
+        setCurrentStepIndex(2);
+        setProgress(50);
+
+        const response = await fetch(`${apiUrl}/api/upload-batch`, {
           method: 'POST',
           body: formData,
         });
 
-        if (!response.ok) throw new Error("Processing failed");
-
-        // Step 3 & 4: (Simulated transition while parsing JSON result)
         setCurrentStepIndex(3);
-        setProgress(80);
-        
+        setProgress(75);
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ detail: "Processing failed" }));
+          throw new Error(err.detail || "Processing failed");
+        }
+
         const data = await response.json();
 
-        // Step 5: Finalizing
         setCurrentStepIndex(4);
         setProgress(100);
 
-        // Success!
         sessionStorage.setItem('processedResult', JSON.stringify(data));
         clearPendingFile();
-        
+
         setTimeout(() => router.push('/result'), 800);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
         clearPendingFile();
-        alert("The engine encountered an issue. Please try a smaller file or refresh.");
+        alert(`Processing failed: ${err.message || "Please try again."}`);
         router.push('/');
       }
     };
 
-    processFile();
+    processFiles();
   }, [router]);
 
   return (
@@ -99,15 +95,16 @@ export default function ProcessPage() {
             className="h-full bg-brand-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]"
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
-            transition={{ type: "tween", ease: "linear", duration: 0.1 }}
+            transition={{ type: "tween", ease: "linear", duration: 0.3 }}
           />
         </div>
 
-        <div className="w-24 h-24 mx-auto bg-brand-500/10 rounded-full flex items-center justify-center mb-8 border border-brand-500/30">
+        <div className="w-24 h-24 mx-auto bg-brand-500/10 rounded-full flex items-center justify-center mb-8 border border-brand-500/30 text-brand-400">
            {steps[currentStepIndex]?.icon}
         </div>
         
-        <h2 className="text-3xl font-bold mb-2">Processing File</h2>
+        <h2 className="text-3xl font-bold mb-1">Processing Files</h2>
+        <p className="text-text-secondary text-sm mb-2 truncate max-w-xs mx-auto">{fileLabel}</p>
         <p className="text-brand-400 font-medium h-6">
            {steps[currentStepIndex]?.label}
         </p>
@@ -115,7 +112,7 @@ export default function ProcessPage() {
         <div className="mt-10 space-y-3 hidden sm:block">
           {steps.map((step, idx) => (
             <div key={step.id} className={`flex items-center space-x-4 p-3 rounded-lg transition-colors ${idx === currentStepIndex ? 'bg-glass-bg border border-brand-500/20' : 'opacity-40'}`}>
-               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${idx <= currentStepIndex ? 'bg-brand-500 text-white' : 'bg-glass-border text-text-secondary'}`}>
+               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${idx <= currentStepIndex ? 'bg-brand-500 text-white' : 'bg-glass-border text-text-secondary'}`}>
                  {idx < currentStepIndex ? "✓" : step.id}
                </div>
                <span className="text-sm font-medium">{step.label}</span>

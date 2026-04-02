@@ -2,21 +2,21 @@
 // Since sessionStorage can't hold File objects/Blobs
 
 type FileStore = {
-  file: File | null;
+  files: File[];
   mode: string;
   targetFormat: string;
   targetSizeKb: number;
 };
 
 let internalStore: FileStore = {
-  file: null,
+  files: [],
   mode: 'COMPRESS',
   targetFormat: 'AUTO',
   targetSizeKb: 0,
 };
 
-export const setPendingFile = (file: File, mode: string, targetFormat: string, targetSizeKb: number = 0) => {
-  internalStore = { file, mode, targetFormat, targetSizeKb };
+export const setPendingFiles = (files: File[], mode: string, targetFormat: string, targetSizeKb: number = 0) => {
+  internalStore = { files, mode, targetFormat, targetSizeKb };
 };
 
 export const getPendingFile = () => {
@@ -24,5 +24,5 @@ export const getPendingFile = () => {
 };
 
 export const clearPendingFile = () => {
-  internalStore = { file: null, mode: 'COMPRESS', targetFormat: 'AUTO', targetSizeKb: 0 };
+  internalStore = { files: [], mode: 'COMPRESS', targetFormat: 'AUTO', targetSizeKb: 0 };
 };

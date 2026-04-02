@@ -12,9 +12,15 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
         
         # Scenario 1: Vectorization (Raster -> SVG)
         if target_format == "SVG":
-            # Direct byte-to-byte vectorization
+            # Normalize image to clean PNG bytes via PIL before vectorizing
+            # This prevents vtracer from failing on unusual image formats/metadata
+            img_norm = Image.open(io.BytesIO(input_bytes)).convert("RGBA")
+            clean_buf = io.BytesIO()
+            img_norm.save(clean_buf, format="PNG")
+            clean_png_bytes = clean_buf.getvalue()
+            
             svg_str = vtracer.convert_image_to_svg_py(
-                input_bytes,
+                clean_png_bytes,
                 colormode='color',
                 hierarchical='stacked',
                 mode='spline',
