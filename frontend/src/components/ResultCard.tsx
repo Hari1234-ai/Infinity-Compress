@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Download, RefreshCcw, FileCheck2, ArrowRight, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -21,9 +21,45 @@ export default function ResultCard({ processedData }: { processedData: any }) {
     return (bytes / 1024 / 1024).toFixed(2) + ' MB';
   };
 
-  const handleDownload = () => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
     const id = isBatch ? processedData.batchId : processedData.fileId;
-    if (id) window.open(`${apiUrl}/api/download/${id}`, '_blank');
+    if (!id) return;
+    
+    try {
+      setIsDownloading(true);
+      const res = await fetch(`${apiUrl}/api/download/${id}`);
+      
+      if (!res.ok) {
+        alert("Download failed. The file may have expired from memory. Please process again.");
+        return;
+      }
+      
+      // If Render container restarted, it may return HTML instead of the file
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+          alert("Server is currently restarting. Please try processing the files again.");
+          return;
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      
+      const filename = isBatch ? "infinitycompress_batch.zip" : (processedData.fileName || "download");
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to download the file.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // ─── BATCH RESULT UI ───────────────────────────────────────────
@@ -98,8 +134,8 @@ export default function ResultCard({ processedData }: { processedData: any }) {
               onClick={handleDownload}
               className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 text-white py-4 rounded-xl font-bold flex items-center justify-center space-x-2 shadow-lg shadow-green-500/20"
             >
-              <Download className="w-5 h-5" />
-              <span>Download ZIP</span>
+              <Download className={`w-5 h-5 ${isDownloading ? 'animate-bounce' : ''}`} />
+              <span>{isDownloading ? 'Downloading...' : 'Download ZIP'}</span>
             </motion.button>
             
             <motion.button 
@@ -191,8 +227,8 @@ export default function ResultCard({ processedData }: { processedData: any }) {
             onClick={handleDownload}
             className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center space-x-2 shadow-lg shadow-green-500/20"
           >
-            <Download className="w-5 h-5" />
-            <span>Download File</span>
+            <Download className={`w-5 h-5 ${isDownloading ? 'animate-bounce' : ''}`} />
+            <span>{isDownloading ? 'Downloading...' : 'Download File'}</span>
           </motion.button>
           
           <motion.button 

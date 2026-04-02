@@ -2,6 +2,7 @@ import io
 import uuid
 import time
 import zipfile
+import gc
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +20,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Global in-memory storage.
@@ -146,6 +148,11 @@ async def upload_batch(
                         "compressedSize": compressed_size,
                         "status": "success"
                     })
+                    
+                    # Prevent memory bloat on free tier
+                    del content
+                    del compressed_bytes
+                    gc.collect()
                 except Exception as e:
                     file_results.append({
                         "originalName": upload_file.filename,
