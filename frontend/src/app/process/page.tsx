@@ -35,34 +35,65 @@ export default function ProcessPage() {
         setCurrentStepIndex(0);
         setProgress(10);
 
-        const formData = new FormData();
-        files.forEach(f => formData.append('files', f));
-        formData.append('mode', mode);
-        formData.append('target_format', targetFormat);
-        formData.append('target_size_kb', String(targetSizeKb));
-
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        
         setCurrentStepIndex(1);
         setProgress(30);
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        let data: any;
 
-        setCurrentStepIndex(2);
-        setProgress(50);
+        if (files.length === 1) {
+          // ── Single file: direct endpoint, direct download ──────────────
+          const formData = new FormData();
+          formData.append('file', files[0]);
+          formData.append('mode', mode);
+          formData.append('target_format', targetFormat);
+          formData.append('target_size_kb', String(targetSizeKb));
 
-        const response = await fetch(`${apiUrl}/api/upload-batch`, {
-          method: 'POST',
-          body: formData,
-        });
+          setCurrentStepIndex(2);
+          setProgress(55);
 
-        setCurrentStepIndex(3);
-        setProgress(75);
+          const response = await fetch(`${apiUrl}/api/upload`, {
+            method: 'POST',
+            body: formData,
+          });
 
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({ detail: "Processing failed" }));
-          throw new Error(err.detail || "Processing failed");
+          setCurrentStepIndex(3);
+          setProgress(80);
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: "Processing failed" }));
+            throw new Error(err.detail || "Processing failed");
+          }
+
+          data = await response.json();
+
+        } else {
+          // ── Multiple files: batch endpoint → ZIP ───────────────────────
+          const formData = new FormData();
+          files.forEach(f => formData.append('files', f));
+          formData.append('mode', mode);
+          formData.append('target_format', targetFormat);
+          formData.append('target_size_kb', String(targetSizeKb));
+
+          setCurrentStepIndex(2);
+          setProgress(50);
+
+          const response = await fetch(`${apiUrl}/api/upload-batch`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          setCurrentStepIndex(3);
+          setProgress(75);
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: "Processing failed" }));
+            throw new Error(err.detail || "Processing failed");
+          }
+
+          data = await response.json();
         }
-
-        const data = await response.json();
 
         setCurrentStepIndex(4);
         setProgress(100);

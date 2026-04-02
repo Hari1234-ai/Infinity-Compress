@@ -52,8 +52,8 @@ def _process_single(content: bytes, filename: str, content_type: str, mode: str,
     else:
         compressed_bytes, new_filename, new_type = content, f"processed_{filename}", content_type
 
-    # Safety net
-    if len(compressed_bytes) > original_size:
+    # Safety net: only revert to original if COMPRESSING and result is larger
+    if mode == "COMPRESS" and len(compressed_bytes) > original_size:
         compressed_bytes = content
         new_filename = filename
         new_type = content_type
