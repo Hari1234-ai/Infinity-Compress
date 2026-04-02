@@ -15,9 +15,6 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
             input_str = input_bytes.decode('utf-8')
             target_bytes = target_size_kb * 1024 if target_size_kb > 0 else 0
             
-            # Iterative Precision Loop
-            current_digits = 5
-            
             def get_minified(digits: int) -> bytes:
                 options = scour.sanitizeOptions()
                 options.remove_metadata = True
@@ -29,22 +26,23 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
                 options.disable_simplify_pk = False
                 options.strip_xml_prolog = True
                 options.strip_xml_space_attribute = True
-                options.indent_type = 'none' 
-                options.digits = digits # Precision Reduction
-                
+                options.indent_type = 'none'
+                options.digits = digits  # Coordinate Precision
                 output_str = scour.scourString(input_str, options=options)
                 return output_str.encode('utf-8')
 
+            # Always start at precision 2 — aggressive by default for meaningful savings
+            current_digits = 2
             compressed_bytes = get_minified(current_digits)
             
             if target_bytes > 0:
-                # If still too large, reduce precision iteratively
+                # Still too large? Reduce precision further down to 1
                 while len(compressed_bytes) > target_bytes and current_digits > 1:
                     current_digits -= 1
                     compressed_bytes = get_minified(current_digits)
 
-            # Safety Net: Never return a larger file than the original
-            if len(compressed_bytes) > len(input_bytes) and target_bytes == 0:
+            # Safety Net: Never return a file larger than the original
+            if len(compressed_bytes) >= len(input_bytes):
                 return input_bytes, original_filename, "image/svg+xml"
 
             base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
