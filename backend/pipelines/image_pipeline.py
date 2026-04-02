@@ -9,34 +9,38 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
     try:
         target_format = target_format.upper()
         
-        # Scenario 1: Vectorization (Raster -> SVG)
+        # Scenario 1: Convert to SVG (embed image as base64 inside SVG container)
         if target_format == "SVG":
-            import vtracer
-            # Normalize image to clean PNG bytes via PIL before vectorizing
-            # This prevents vtracer from failing on unusual image formats/metadata
-            img_norm = Image.open(io.BytesIO(input_bytes)).convert("RGBA")
-            clean_buf = io.BytesIO()
-            img_norm.save(clean_buf, format="PNG")
-            clean_png_bytes = clean_buf.getvalue()
+            import base64
+            # Open image to get dimensions
+            img = Image.open(io.BytesIO(input_bytes))
+            width, height = img.size
             
-            svg_str = vtracer.convert_image_to_svg_py(
-                clean_png_bytes,
-                colormode='color',
-                hierarchical='stacked',
-                mode='spline',
-                filter_speckle=4,
-                color_precision=6,
-                layer_difference=16,
-                corner_threshold=60,
-                length_threshold=4.0,
-                max_iterations=10,
-                splice_threshold=45,
-                path_precision=3
+            # Normalize to PNG for embedding (handles JPEG, WEBP, etc.)
+            buf = io.BytesIO()
+            if img.mode in ("RGBA", "LA", "P"):
+                img.save(buf, format="PNG")
+                mime = "image/png"
+            else:
+                img.convert("RGB").save(buf, format="JPEG", quality=90)
+                mime = "image/jpeg"
+            
+            img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            
+            # Wrap inside a valid SVG container
+            svg_str = (
+                f'<svg xmlns="http://www.w3.org/2000/svg" '
+                f'xmlns:xlink="http://www.w3.org/1999/xlink" '
+                f'width="{width}" height="{height}" '
+                f'viewBox="0 0 {width} {height}">'
+                f'<image href="data:{mime};base64,{img_b64}" '
+                f'x="0" y="0" width="{width}" height="{height}"/>'
+                f'</svg>'
             )
             
-            output_bytes = svg_str.encode('utf-8')
+            output_bytes = svg_str.encode("utf-8")
             base_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
-            new_filename = f"{base_name}_vectorized.svg"
+            new_filename = f"{base_name}.svg"
             return output_bytes, new_filename, "image/svg+xml"
 
         # Scenario 2: Raster Processing (JPEG, PNG, WEBP)
