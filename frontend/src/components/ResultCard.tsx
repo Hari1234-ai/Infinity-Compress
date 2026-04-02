@@ -158,9 +158,10 @@ export default function ResultCard({ processedData }: { processedData: any }) {
 
   const getFormatIcon = (type: string) => {
     const ext = type.split('/').pop()?.toUpperCase() || 'FILE';
+    const textClass = ext.length > 5 ? 'text-xs text-center px-1 break-words leading-tight' : 'text-xl';
     return (
       <div className="flex flex-col items-center">
-        <div className="w-16 h-16 bg-brand-500/10 rounded-xl border border-brand-500/30 flex items-center justify-center text-brand-500 font-black text-xl mb-2">
+        <div className={`w-16 h-16 bg-brand-500/10 rounded-xl border border-brand-500/30 flex items-center justify-center text-brand-500 font-black mb-2 ${textClass}`}>
           {ext}
         </div>
         <span className="text-[10px] text-text-secondary font-bold uppercase tracking-widest">{type}</span>
