@@ -6,6 +6,7 @@ import gc
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from typing import Dict, Any, List
 
 from pipelines.image_pipeline import process_image
@@ -76,8 +77,8 @@ async def upload_file(
         detected_type = file.content_type or "application/octet-stream"
         file_id = str(uuid.uuid4())
 
-        compressed_bytes, new_filename, new_type = _process_single(
-            content, file.filename, detected_type, mode, target_format, target_size_kb
+        compressed_bytes, new_filename, new_type = await run_in_threadpool(
+            _process_single, content, file.filename, detected_type, mode, target_format, target_size_kb
         )
         compressed_size = len(compressed_bytes)
 
@@ -112,7 +113,8 @@ async def upload_batch(
     files: List[UploadFile] = File(...),
     mode: str = Form("COMPRESS"),
     target_format: str = Form("AUTO"),
-    target_size_kb: int = Form(0)
+    target_size_kb: int = Form(0),
+    batch_id: str = Form("")
 ) -> Dict[str, Any]:
     """Processes up to 20 files and stores them as a ZIP in memory."""
     if len(files) > 20:
@@ -125,6 +127,9 @@ async def upload_batch(
         total_compressed = 0
         file_results = []
 
+        if batch_id:
+            PROCESSED_FILES_STORE[f"progress_{batch_id}"] = {"done": 0, "total": len(files)}
+
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for upload_file in files:
                 try:
@@ -133,8 +138,8 @@ async def upload_batch(
                     original_size = len(content)
                     total_original += original_size
 
-                    compressed_bytes, new_filename, new_type = _process_single(
-                        content, upload_file.filename, detected_type, mode, target_format, target_size_kb
+                    compressed_bytes, new_filename, new_type = await run_in_threadpool(
+                        _process_single, content, upload_file.filename, detected_type, mode, target_format, target_size_kb
                     )
 
                     compressed_size = len(compressed_bytes)
@@ -148,6 +153,9 @@ async def upload_batch(
                         "compressedSize": compressed_size,
                         "status": "success"
                     })
+                    
+                    if batch_id:
+                        PROCESSED_FILES_STORE[f"progress_{batch_id}"]["done"] = success_count
                     
                     # Prevent memory bloat on free tier
                     del content
@@ -202,3 +210,10 @@ async def download_file(file_id: str):
             "Content-Disposition": f'attachment; filename="{record["filename"]}"'
         }
     )
+
+@app.get("/api/progress/{batch_id}")
+async def get_progress(batch_id: str):
+    progress = PROCESSED_FILES_STORE.get(f"progress_{batch_id}")
+    if not progress:
+        return {"done": 0, "total": 0}
+    return progress

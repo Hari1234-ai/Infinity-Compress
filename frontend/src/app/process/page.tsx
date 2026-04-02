@@ -19,6 +19,7 @@ export default function ProcessPage() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [fileLabel, setFileLabel] = useState("your files");
+  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 });
 
   useEffect(() => {
     const { files, mode, targetFormat, targetSizeKb } = getPendingFile();
@@ -70,19 +71,41 @@ export default function ProcessPage() {
 
         } else {
           // ── Multiple files: batch endpoint → ZIP ───────────────────────
+          const batchId = Math.random().toString(36).substring(2) + Date.now().toString(36);
           const formData = new FormData();
           files.forEach(f => formData.append('files', f));
           formData.append('mode', mode);
           formData.append('target_format', targetFormat);
           formData.append('target_size_kb', String(targetSizeKb));
+          formData.append('batch_id', batchId);
 
           setCurrentStepIndex(2);
           setProgress(50);
+          
+          setBatchProgress({ done: 0, total: files.length });
 
-          const response = await fetch(`${apiUrl}/api/upload-batch`, {
-            method: 'POST',
-            body: formData,
-          });
+          const pollInterval = window.setInterval(async () => {
+            try {
+              const res = await fetch(`${apiUrl}/api/progress/${batchId}`);
+              const pData = await res.json();
+              if (pData.total > 0) {
+                 setBatchProgress(pData);
+                 setProgress(50 + (pData.done / pData.total) * 25);
+              }
+            } catch (e) {
+              // ignore polling errors
+            }
+          }, 800);
+
+          let response;
+          try {
+            response = await fetch(`${apiUrl}/api/upload-batch`, {
+              method: 'POST',
+              body: formData,
+            });
+          } finally {
+            window.clearInterval(pollInterval);
+          }
 
           setCurrentStepIndex(3);
           setProgress(75);
@@ -139,6 +162,23 @@ export default function ProcessPage() {
         <p className="text-brand-400 font-medium h-6">
            {steps[currentStepIndex]?.label}
         </p>
+
+        {batchProgress.total > 1 && (
+          <div className="mt-8 w-full max-w-sm mx-auto bg-glass-bg p-4 rounded-xl border border-glass-border">
+             <div className="flex justify-between text-xs text-text-secondary mb-2 font-bold uppercase tracking-wider">
+                <span className="text-white">{batchProgress.done} Processed</span>
+                <span>{batchProgress.total - batchProgress.done} Remaining</span>
+             </div>
+             <div className="w-full h-2 bg-glass-border rounded-full overflow-hidden">
+                <motion.div 
+                   className="h-full bg-gradient-to-r from-brand-500 to-brand-400 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                   initial={{ width: 0 }}
+                   animate={{ width: `${(batchProgress.done / batchProgress.total) * 100}%` }}
+                   transition={{ type: "tween", ease: "linear", duration: 0.2 }}
+                />
+             </div>
+          </div>
+        )}
         
         <div className="mt-10 space-y-3 hidden sm:block">
           {steps.map((step, idx) => (
