@@ -1,5 +1,69 @@
 import io
+import re
+import base64
+from PIL import Image
 from scour import scour
+
+def compress_embedded_images(svg_text: str, target_size_kb: int = 0) -> str:
+    # Regex to find base64 data URLs in SVG
+    pattern = r'(data:image/(?P<ext>png|jpeg|jpg|webp|gif);base64,(?P<data>[A-Za-z0-9+/=\s\n\r]+))'
+    
+    def replace_match(match):
+        full_match = match.group(0)
+        ext = match.group('ext').lower()
+        data_str = match.group('data')
+        
+        # Clean the base64 string (remove whitespace/newlines)
+        cleaned_data = re.sub(r'\s+', '', data_str)
+        try:
+            img_bytes = base64.b64decode(cleaned_data)
+            
+            # If the image is extremely small, skip it to avoid quality degradation
+            if len(img_bytes) < 2048:
+                return full_match
+                
+            img = Image.open(io.BytesIO(img_bytes))
+            
+            out_buf = io.BytesIO()
+            save_format = img.format if img.format else ext.upper()
+            if save_format == "JPG":
+                save_format = "JPEG"
+                
+            if save_format == "PNG":
+                # Quantize PNG to 8-bit palette (256 colors) for major savings
+                if img.mode in ["RGBA", "RGB"]:
+                    quantized = img.quantize(colors=256)
+                    quantized.save(out_buf, format="PNG", optimize=True)
+                else:
+                    img.save(out_buf, format="PNG", optimize=True)
+            elif save_format in ["JPEG", "WEBP"]:
+                # Reduce quality to 80 for minimal perceptual quality loss
+                quality = 80
+                if target_size_kb > 0:
+                    quality = 70  # More aggressive if target size is specified
+                
+                if img.mode == "RGBA" and save_format == "JPEG":
+                    bg = Image.new("RGB", img.size, (255, 255, 255))
+                    bg.paste(img, (0, 0), img)
+                    bg.save(out_buf, format="JPEG", quality=quality, optimize=True)
+                else:
+                    img.save(out_buf, format=save_format, quality=quality, optimize=True)
+            else:
+                img.save(out_buf, format=save_format, optimize=True)
+                
+            compressed_bytes = out_buf.getvalue()
+            
+            # Only replace if the compressed version is actually smaller!
+            if len(compressed_bytes) < len(img_bytes):
+                new_base64 = base64.b64encode(compressed_bytes).decode('utf-8')
+                return f"data:image/{ext};base64,{new_base64}"
+            
+            return full_match
+        except Exception:
+            return full_match
+
+    return re.sub(pattern, replace_match, svg_text)
+
 
 def process_svg(input_bytes: bytes, original_filename: str, target_format: str = "SVG", target_size_kb: int = 0) -> tuple[bytes, str, str]:
     """
@@ -11,8 +75,16 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
         
         # Scenario 1: Optimization (SVG -> SVG)
         if target_format == "SVG":
-            input_str = input_bytes.decode('utf-8')
+            # Attempt decoding with utf-8, fallback with ignore
+            try:
+                input_str = input_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                input_str = input_bytes.decode('utf-8', errors='ignore')
+                
             target_bytes = target_size_kb * 1024 if target_size_kb > 0 else 0
+            
+            # First, compress any embedded base64 images inside the SVG
+            compressed_svg_str = compress_embedded_images(input_str, target_size_kb)
             
             def get_minified(digits: int) -> bytes:
                 options = scour.sanitizeOptions()
@@ -27,7 +99,7 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
                 options.strip_xml_space_attribute = True
                 options.indent_type = 'none'
                 options.digits = digits  # Coordinate Precision
-                output_str = scour.scourString(input_str, options=options)
+                output_str = scour.scourString(compressed_svg_str, options=options)
                 return output_str.encode('utf-8')
 
             # Always start at precision 2 — aggressive by default for meaningful savings
@@ -36,7 +108,11 @@ def process_svg(input_bytes: bytes, original_filename: str, target_format: str =
             
             if target_bytes > 0:
                 # Still too large? Reduce precision further down to 1
+                prev_digits = None
                 while len(compressed_bytes) > target_bytes and current_digits > 1:
+                    if prev_digits == current_digits:
+                        break
+                    prev_digits = current_digits
                     current_digits -= 1
                     compressed_bytes = get_minified(current_digits)
 

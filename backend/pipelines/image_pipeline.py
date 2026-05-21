@@ -83,13 +83,21 @@ def process_image(input_bytes: bytes, original_filename: str, target_format: str
         compressed_bytes = get_variant(current_quality, current_scale)
         
         if target_bytes > 0:
+            prev_quality = None
             while len(compressed_bytes) > target_bytes and current_quality > 10:
+                if prev_quality == current_quality:
+                    break
+                prev_quality = current_quality
                 current_quality -= 15
                 if current_quality < 10: current_quality = 10
                 compressed_bytes = get_variant(current_quality, current_scale)
             
             # Phase 2: If still too large, reduce scale (90% -> 10%)
+            prev_scale = None
             while len(compressed_bytes) > target_bytes and current_scale > 0.1:
+                if prev_scale == current_scale:
+                    break
+                prev_scale = current_scale
                 current_scale -= 0.15
                 if current_scale < 0.1: current_scale = 0.1
                 compressed_bytes = get_variant(current_quality, current_scale)
